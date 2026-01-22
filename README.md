@@ -129,50 +129,67 @@ replimap -p prod -r us-east-1 deps sg-0a1b2c3d4e
 
 </details>
 
-### 🏗️ Generate Infrastructure as Code
+### 🏗️ Codify: ClickOps to Terraform
 
-**From ClickOps to Terraform in minutes, not months.**
+**Stop writing HCL by hand. Let the engine do it.**
 
-Turn any AWS account into version-controlled Terraform. No manual `terraform import`. No guesswork. Generates clean HCL with proper variable extraction — code that actually passes `terraform plan` on the first try.
+You built your infrastructure in the console. Now you need to manage it with code. `codify` scans your existing resources and generates production-ready Terraform, complete with `import` blocks to sync your state instantly.
 
 ```bash
-# Generate Terraform from your AWS account
-replimap -p prod -r us-east-1 clone --mode generate -o ./terraform
+# Reverse-engineer your existing infrastructure
+replimap codify -p prod -r us-east-1 -o ./terraform
 
-# Output structure
+# Example output
+Authenticated as arn:aws:sts::123456789012:assumed-role/admin/user
+Using cached scan (2m ago) • 1,772 resources • 1,655 dependencies
+
+# Output structure (18 files)
 terraform/
-├── main.tf           # All resources
-├── variables.tf      # Extracted variables
-├── outputs.tf        # Useful outputs
-├── providers.tf      # AWS provider config
-├── data.tf           # Data sources
-└── terraform.tfvars.example
+├── README.md
+├── alb.tf
+├── backend.tf
+├── compute.tf
+├── ec2.tf
+├── elasticache.tf
+├── iam_roles.tf
+├── imports.tf        # Terraform 1.5+ import blocks
+├── messaging.tf
+├── monitoring.tf
+├── networking.tf
+├── rds.tf
+├── s3.tf
+├── security_groups.tf
+├── storage.tf
+├── tfplan.txt
+├── variables.tf
+└── vpc.tf
 ```
 
 **Why RepliMap's code generation is different:**
 
-- ✅ **Handles `root_block_device` defaults** — prevents accidental EC2 replacement ([see the trap](https://www.reddit.com/r/devops/comments/1i6xazf/psa_the_rootblockdevice_gotcha_that_almost_cost/))
+- ✅ **Handles `root_block_device` defaults** — prevents accidental EC2 replacement ([see the trap](https://www.reddit.com/r/devops/comments/1qiun82/psa_the_root_block_device_gotcha_that_almost_cost/))
 - ✅ **Resolves circular dependencies** — auto-splits Security Group rules
 - ✅ **Filters AWS system tags** — no more `aws:*` tag rejection errors
 - ✅ **Extracts variables** — not just hardcoded values
 
 **Supported IaC formats:**
 - ✅ Terraform (HCL)
-- ✅ CloudFormation (YAML/JSON)
+- 🔜 CloudFormation (YAML/JSON)
 - 🔜 Pulumi (TypeScript)
 - 🔜 CDK (TypeScript)
 
-### 💰 Optimize Costs
+### 👯 Clone & Right-Size Environments
 
 **Stop paying production prices for dev environments.**
 
-RepliMap's Right-Sizer analyzes your resources and recommends optimizations. Clone production to staging with automatic downsizing — save 40-60% on non-prod environments.
+Need a staging environment that mirrors production? Don't just copy it—optimize it.
+RepliMap's `clone` command duplicates your architecture but automatically downsizes instances (e.g., `m5.2xlarge` → `t3.medium`) and strips sensitive data, saving you 40-60% on non-prod costs.
 
 ```bash
-# Clone prod to staging with cost optimization
-replimap -p prod -r us-east-1 clone --dev-mode --mode generate -o ./staging
+# Clone prod to staging with automatic cost optimization
+replimap clone --profile prod --region us-east-1 --output-dir ./staging-tf --rename-pattern "prod:staging" --mode generate
 
-# See what you'll save
+# See what you'll save before applying
 replimap -p prod -r us-east-1 cost
 ```
 
@@ -181,17 +198,14 @@ replimap -p prod -r us-east-1 cost
 │                        💰 Right-Sizer Report                            │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│  Resource              Current        Recommended      Monthly Savings  │
+│  Resource              Original (Prod)  Clone (Dev)      Monthly Savings│
 │  ─────────────────────────────────────────────────────────────────────  │
-│  web-server-1          m5.2xlarge     t3.large         $198.56         │
-│  web-server-2          m5.2xlarge     t3.large         $198.56         │
-│  api-server            m5.xlarge      t3.medium        $124.10         │
-│  analytics-db          db.r5.2xlarge  db.r5.large      $365.00         │
-│  cache-cluster         r6g.xlarge     r6g.large        $131.40         │
+│  web-server-1          m5.2xlarge       t3.large         $198.56        │
+│  rds-cluster           db.r5.2xlarge    db.r5.large      $365.00        │
+│  elasticache           r6g.xlarge       r6g.large        $131.40        │
 │                                                                         │
 │  ─────────────────────────────────────────────────────────────────────  │
 │  TOTAL MONTHLY SAVINGS                                 $1,017.62        │
-│  ANNUAL SAVINGS                                        $12,211.44       │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -281,10 +295,10 @@ Spin up production-identical environments in minutes, not days:
 
 ```bash
 # Clone prod to staging with cost-optimized instances
-replimap -p prod -r us-east-1 clone --dev-mode --mode generate -o ./staging
+replimap clone --profile prod --region us-east-1 --output-dir ./staging-tf --rename-pattern "prod:staging" --mode generate
 
 # Test complete? Destroy with confidence
-cd staging && terraform destroy
+cd staging-tf && terraform destroy
 ```
 
 ### 💸 FinOps & Cost Optimization
@@ -346,7 +360,7 @@ open architecture.html
 
 ```bash
 # Generate Terraform from scanned infrastructure
-replimap -p myaccount -r us-east-1 clone --mode generate -o ./terraform
+replimap codify -p prod -r us-east-1 -o ./terraform
 
 # Review and apply
 cd terraform
@@ -361,9 +375,10 @@ terraform plan
 | Command | Description |
 |---------|-------------|
 | `replimap scan` | Scan AWS resources and build dependency graph |
-| `replimap clone` | Clone AWS environment to Infrastructure-as-Code |
-| `replimap analyze` | Analyze graph for critical resources, SPOFs, blast radius |
+| `replimap codify` | Transform ClickOps AWS infrastructure into production-ready Terraform code |
+| `replimap clone` | Clone AWS environment to Infrastructure-as-Code with cost optimization |
 | `replimap graph` | Generate visual dependency graph |
+| `replimap analyze` | Analyze graph for critical resources, SPOFs, blast radius |
 | `replimap deps` | Explore dependencies for a resource |
 | `replimap cost` | Estimate monthly AWS costs |
 | `replimap audit` | Run security audit on AWS infrastructure |
@@ -379,30 +394,60 @@ replimap --help
 Usage: replimap [OPTIONS] COMMAND [ARGS]...
 
 AWS Infrastructure Intelligence Engine
-Scan, understand, and transform your cloud.
 
-Global Options:
-  -p, --profile TEXT    AWS profile name (inherited by subcommands)
-  -r, --region TEXT     AWS region (inherited by subcommands)
-  -q, --quiet           Suppress verbose output
-  -V, --version         Show version and exit
-  -h, --help            Show help and exit
+Options:
+  --quiet               -q            Suppress verbose output
+  --version             -V            Show version and exit
+  --privacy                           Show privacy and data handling information
+  --profile             -p      TEXT  AWS profile name (can also be set per-command)
+  --region              -r      TEXT  AWS region (can also be set per-command)
+  --help                -h            Show this message and exit.
 
-Commands:
-  scan        Scan AWS resources and build dependency graph
-  clone       Clone AWS environment to Infrastructure-as-Code
-  analyze     Analyze graph for critical resources, SPOFs, blast radius
-  graph       Generate visual dependency graph of AWS infrastructure
-  deps        Explore dependencies for a resource
-  cost        Estimate monthly AWS costs for your infrastructure
-  audit       Run security audit on AWS infrastructure
-  drift       Detect infrastructure drift between Terraform state and AWS
-  remediate   Generate Terraform remediation code from audit JSON
-  snapshot    Infrastructure snapshots for change tracking
-  dr          Disaster Recovery readiness assessment
-  unused      Detect unused and underutilized resources
-  trends      Analyze AWS cost trends and detect anomalies
-  license     Manage RepliMap license
+Core Commands:
+  scan            Scan AWS resources and build dependency graph.
+  graph           Generate visual dependency graph of AWS infrastructure.
+  load            Load and display a saved graph.
+  profiles        List available AWS profiles.
+
+Infrastructure as Code:
+  clone           Clone AWS environment to Infrastructure-as-Code.
+  codify          Transform ClickOps AWS infrastructure into production-ready Terraform code.
+  remediate       Generate Terraform remediation code from an audit JSON file.
+
+Analysis:
+  analyze         Analyze a resource dependency graph for critical infrastructure.
+  deps            Explore dependencies for a resource.
+  drift           Detect infrastructure drift between Terraform state and AWS.
+  validate        Validate infrastructure against topology constraints.
+  drift-offline   Offline drift detection
+
+Cost Optimization:
+  cost            Estimate monthly AWS costs for your infrastructure.
+  unused          Detect unused and underutilized AWS resources.
+  trends          Analyze AWS cost trends and detect anomalies.
+  transfer        Analyze data transfer costs and optimization opportunities.
+
+Security & Compliance:
+  audit           Run security audit on AWS infrastructure.
+  iam             Generate least-privilege IAM policies from graph analysis
+  trust-center    Trust Center API auditing for compliance
+
+Configuration:
+  doctor          Run environment health checks.
+  cache           Credential cache management
+  scan-cache      Scan result cache management
+  license         License management commands
+  upgrade         Upgrade your RepliMap plan
+  completion      Generate shell completion scripts
+  decisions       Manage user decisions (suppression, extraction, etc.)
+
+Help & Debugging:
+  explain         Get detailed information about an error code.
+  errors          List all error codes.
+
+Disaster Recovery:
+  snapshot        Infrastructure snapshots for change tracking
+  dr              Disaster Recovery readiness assessment
 ```
 
 </details>
@@ -417,7 +462,7 @@ RepliMap uses standard AWS credential chain:
 
 ```bash
 # Option 1: AWS CLI profile (recommended)
-replimap -p my-profile scan
+replimap -p prod scan
 
 # Option 2: Environment variables
 export AWS_ACCESS_KEY_ID=xxx
