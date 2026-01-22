@@ -33,6 +33,18 @@
 </p>
 
 <p align="center">
+  <a href="https://dev.to/davidlu1001/two-terraform-traps-that-burned-me-hidden-defaults-circular-dependencies-4n74">
+    <img src="https://img.shields.io/badge/Dev.to-Technical%20Deep%20Dive-0A0A0A?style=flat-square&logo=dev.to&logoColor=white" alt="Dev.to" />
+  </a>
+  <a href="https://news.ycombinator.com/item?id=46720620">
+    <img src="https://img.shields.io/badge/Hacker%20News-Join%20Discussion-FF6600?style=flat-square&logo=ycombinator&logoColor=white" alt="Hacker News" />
+  </a>
+  <a href="https://twitter.com/davidlu1001">
+    <img src="https://img.shields.io/badge/Twitter-Follow%20Updates-1DA1F2?style=flat-square&logo=twitter&logoColor=white" alt="Twitter" />
+  </a>
+</p>
+
+<p align="center">
   <img src="assets/demo-scan.png" alt="RepliMap Demo" width="700" />
 </p>
 
