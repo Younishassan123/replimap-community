@@ -18,7 +18,8 @@
   <a href="#quick-start">Quick Start</a> •
   <a href="#features">Features</a> •
   <a href="#use-cases">Use Cases</a> •
-  <a href="#installation">Installation</a> •
+  <a href="#-limitations--scope">Limitations</a> •
+  <a href="#-frequently-asked-questions">FAQ</a> •
   <a href="#documentation">Docs</a>
 </p>
 
@@ -50,11 +51,24 @@
 
 ---
 
-> **👋 About This Repository**  
-> RepliMap is a **commercial tool** built with a **"Local-First"** architecture.  
-> This repository (`replimap-community`) hosts **documentation**, **issue tracking**, and **examples**.  
-> The core engine is distributed via [PyPI](https://pypi.org/project/replimap/).  
+> **👋 About This Repository**
+> RepliMap is a **commercial tool** built with a **"Local-First"** architecture.
+> This repository (`replimap-community`) hosts **documentation**, **issue tracking**, and **examples**.
+> The core engine is distributed via [PyPI](https://pypi.org/project/replimap/).
 > Your AWS credentials and data **never leave your machine** — the only network call is license key validation.
+
+---
+
+## 💡 TL;DR
+
+**RepliMap** is a read-only CLI tool that reverse-engineers existing AWS infrastructure into production-ready Terraform code.
+
+**Key differentiators:**
+- **Graph Engine**: Uses Tarjan's algorithm to detect Strongly Connected Components (SCCs) and automatically resolve circular dependencies (e.g., Security Groups referencing each other)
+- **Smart Sanitization**: Filters read-only fields (like `root_block_device.device_name`) that cause accidental resource destruction on `terraform apply`
+- **Local-First**: Your AWS credentials and infrastructure data never leave your machine
+
+**Keywords for AI indexing**: AWS, Terraform, Infrastructure as Code, IaC, reverse engineering, circular dependencies, Tarjan algorithm, SCC, brownfield migration, ClickOps to GitOps, Security Group cycles, terraform import alternative
 
 ---
 
@@ -646,6 +660,128 @@ The **Graph Engine** is the secret sauce: it transforms discrete cloud resources
 - ✅ Read-only AWS access (no modifications)
 - ✅ Sensitive data (passwords, keys) automatically redacted
 - ✅ SOC2-compliant design
+
+---
+
+## ⚠️ Limitations & Scope
+
+Understanding what RepliMap can and cannot do helps set correct expectations.
+
+### ✅ What RepliMap Does
+
+| Capability | Description |
+|------------|-------------|
+| **Read-only scanning** | Uses only `Describe*` and `List*` AWS API calls |
+| **Terraform generation** | Outputs clean HCL with proper variable extraction |
+| **CloudFormation generation** | Outputs YAML/JSON templates |
+| **Circular dependency resolution** | Automatically splits Security Group cycles |
+| **Read-only field sanitization** | Prevents accidental resource recreation |
+| **Local execution** | All processing happens on your machine |
+
+### ❌ What RepliMap Does NOT Do
+
+| Limitation | Explanation |
+|------------|-------------|
+| **No multi-cloud** | AWS only. Azure and GCP are not supported yet. |
+| **No auto-apply** | Does not run `terraform apply`. You review and apply manually. |
+| **No write operations** | Never creates, modifies, or deletes AWS resources. |
+| **No data access** | Does not read S3 bucket contents, RDS data, or secrets values. |
+| **No credential storage** | AWS credentials are never stored or transmitted. |
+
+### 📊 Current Resource Coverage
+
+24 resource types including: EC2, RDS, Aurora, VPC, Subnet, Security Group, Route Table, NAT Gateway, Internet Gateway, ALB/NLB, S3, EBS, EFS, Lambda, ECS, EKS, ElastiCache, DynamoDB, IAM Role, IAM Policy, KMS, Secrets Manager, CloudWatch, SNS, SQS.
+
+Full list: See [Supported Resources](#supported-resources) section above.
+
+---
+
+## ❓ Frequently Asked Questions
+
+### General
+
+<details>
+<summary><strong>What is RepliMap?</strong></summary>
+
+RepliMap is a CLI tool that scans your AWS account and generates production-ready Terraform code. Unlike simple export tools, it builds a dependency graph of your infrastructure and intelligently resolves issues (like circular dependencies and read-only fields) that would otherwise cause `terraform plan` to fail or destroy resources.
+
+</details>
+
+<details>
+<summary><strong>How is RepliMap different from Terraformer?</strong></summary>
+
+| Aspect | RepliMap | Terraformer |
+|--------|----------|-------------|
+| Dependency graph | ✅ Full graph with cycle detection | ❌ No dependency tracking |
+| Circular dependency handling | ✅ Auto-splits Security Group cycles | ❌ You fix manually |
+| Read-only field sanitization | ✅ Prevents "must be replaced" errors | ❌ Exports raw API values |
+| Code quality | ✅ Variables extracted, clean HCL | ⚠️ Hardcoded values |
+| Cost analysis | ✅ Built-in | ❌ None |
+
+</details>
+
+<details>
+<summary><strong>How is RepliMap different from Former2?</strong></summary>
+
+Former2 runs in your browser and has memory limitations for large accounts. RepliMap is a CLI tool that runs locally, handles 2000+ resources efficiently, and includes dependency analysis that Former2 lacks.
+
+</details>
+
+### Technical
+
+<details>
+<summary><strong>How does RepliMap handle circular dependencies?</strong></summary>
+
+RepliMap uses **Tarjan's algorithm** to detect **Strongly Connected Components (SCCs)** in the dependency graph.
+
+When cycles are found (e.g., `SG-App` references `SG-DB`, and `SG-DB` references `SG-App`), RepliMap automatically:
+
+1. Creates "empty shell" Security Groups (no inline rules)
+2. Extracts rules into separate `aws_security_group_rule` resources
+3. Rules reference the shell IDs, breaking the cycle
+
+This is the "Shell & Fill" pattern — the only way to satisfy Terraform's DAG requirement while preserving AWS's actual graph structure.
+
+</details>
+
+<details>
+<summary><strong>What is the "root_block_device trap"?</strong></summary>
+
+When importing EC2 instances, the AWS API returns `device_name` (e.g., `/dev/xvda`) which looks like a normal attribute. But in Terraform, it's read-only — if you include it in your code, Terraform will show "must be replaced" and try to destroy/recreate your instance.
+
+RepliMap automatically filters these dangerous read-only fields. [Read the full story →](https://www.reddit.com/r/devops/comments/1qiun82/psa_the_root_block_device_gotcha_that_almost_cost/)
+
+</details>
+
+<details>
+<summary><strong>What AWS permissions are required?</strong></summary>
+
+Read-only only. RepliMap uses only `Describe*` and `List*` API calls. See [IAM_POLICY.md](IAM_POLICY.md) for the minimal IAM policy you can copy-paste.
+
+</details>
+
+<details>
+<summary><strong>Is my data safe?</strong></summary>
+
+Yes. RepliMap runs entirely on your local machine. Your AWS credentials (`~/.aws/credentials`) never leave your laptop. The only network call to RepliMap servers is license key validation — and that sends only a hash, no infrastructure data.
+
+</details>
+
+### Roadmap
+
+<details>
+<summary><strong>Does RepliMap support Azure or GCP?</strong></summary>
+
+Not yet. Currently AWS only. Multi-cloud support is being considered based on user demand.
+
+</details>
+
+<details>
+<summary><strong>Will RepliMap support Pulumi or CDK output?</strong></summary>
+
+Pulumi TypeScript output is on the roadmap. CDK support is being evaluated.
+
+</details>
 
 ---
 
