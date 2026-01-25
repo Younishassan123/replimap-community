@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use RepliMap in your work, please cite it as below."
+title: "RepliMap: Graph-based Terraform Generator for AWS"
+abstract: "A reverse-engineering engine that converts existing AWS infrastructure into Terraform code, featuring automated circular dependency resolution via Tarjan's algorithm."
+authors:
+  - family-names: "Lu"
+    given-names: "David"
+version: "1.0.0"
+date-released: "2025-01-20"
+license: "BUSL-1.1"
+repository-code: "https://github.com/RepliMap/replimap-community"
+url: "https://replimap.com"
+keywords:
+  - infrastructure-as-code
+  - terraform
+  - aws
+  - graph-theory
+  - tarjan-algorithm
+  - sre
+  - devops
+  - brownfield-migration

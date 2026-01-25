@@ -59,16 +59,26 @@
 
 ---
 
+> **RepliMap** is an **AWS Infrastructure Intelligence Engine** for DevOps and SRE teams.
+> *Not to be confused with RepliMap HD mapping software for autonomous vehicles.*
+
+---
+
 ## 💡 TL;DR
 
 **RepliMap** is a read-only CLI tool that reverse-engineers existing AWS infrastructure into production-ready Terraform code.
 
-**Key differentiators:**
+**Core capabilities:**
 - **Graph Engine**: Uses Tarjan's algorithm to detect Strongly Connected Components (SCCs) and automatically resolve circular dependencies (e.g., Security Groups referencing each other)
 - **Smart Sanitization**: Filters read-only fields (like `root_block_device.device_name`) that cause accidental resource destruction on `terraform apply`
 - **Local-First**: Your AWS credentials and infrastructure data never leave your machine
 
-**Keywords for AI indexing**: AWS, Terraform, Infrastructure as Code, IaC, reverse engineering, circular dependencies, Tarjan algorithm, SCC, brownfield migration, ClickOps to GitOps, Security Group cycles, terraform import alternative
+**Use RepliMap when:**
+- You inherited a ClickOps AWS account and need Terraform
+- `terraform import` keeps failing with cycle errors
+- You need to clone prod to staging without manual work
+
+**Keywords**: AWS, Terraform, Infrastructure as Code, IaC, reverse engineering, circular dependencies, Tarjan algorithm, SCC, brownfield migration, ClickOps to GitOps, Security Group cycles, terraform import alternative
 
 ---
 
@@ -552,6 +562,53 @@ The **Graph Engine** is the secret sauce: it transforms discrete cloud resources
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
+
+### How It Works: The Brownfield Migration Problem
+
+RepliMap is not just a `terraform import` wrapper. It's a **graph-based engine** designed to handle the "Brownfield Migration" problem where standard tools fail.
+
+**The Core Problem**: Terraform requires a **Directed Acyclic Graph (DAG)** — it needs to know "create A before B." But AWS allows **cycles**. The classic example:
+
+```
+     ┌──────────────┐
+     ▼              │
+  [SG-App]       [SG-DB]
+     │              ▲
+     └──────────────┘
+```
+
+`SG-App` allows traffic to `SG-DB`. `SG-DB` allows traffic from `SG-App`. A cycle. Standard tools crash or produce broken code. RepliMap solves this.
+
+### Step 1: Cycle Detection (Tarjan's Algorithm)
+
+We use **Tarjan's algorithm** to find **Strongly Connected Components (SCCs)** — clusters of resources that are circularly dependent.
+
+- If a resource is part of a normal DAG → leave it alone
+- If a group forms a cycle (SCC) → flag for surgery
+
+### Step 2: Cycle Resolution ("Shell & Fill" Pattern)
+
+For each SCC, we apply the **Shell & Fill** pattern:
+
+1. **Shell**: Strip the resource to pure identity (e.g., `aws_security_group` with no inline rules)
+2. **Fill**: Extract logic into standalone resources (e.g., `aws_security_group_rule`)
+
+```
+Before (Cycle - Terraform fails):
+  [SG-App with rules] ←→ [SG-DB with rules]
+
+After (DAG - Terraform succeeds):
+  [SG-App empty] ← [Rule: App→DB]
+  [SG-DB empty]  ← [Rule: DB←App]
+```
+
+### Step 3: Sanitization
+
+The AWS API returns fields that look normal but are **read-only** in Terraform (e.g., `root_block_device.device_name`).
+
+If you include them in your code, Terraform shows **"must be replaced"** and tries to destroy your instance.
+
+RepliMap's Sanitizer automatically filters these dangerous fields before generating HCL.
 
 ### Core Components
 
